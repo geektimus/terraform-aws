@@ -1,14 +1,31 @@
 terraform {
+  required_version = ">=1.2.7"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 4.0"
     }
   }
+
+  backend "s3" {
+    bucket         = "codingmaniacs-tf"
+    key            = "codingmaniacs-deployments"
+    region         = "us-east-1"
+    dynamodb_table = "codingmaniacs-tf-lock"
+  }
 }
 
 provider "aws" {
-  region     = "us-east-1"
+  region = "us-east-1"
+}
+
+data "aws_caller_identity" "current" {}
+
+# Default VPC
+resource "aws_default_vpc" "default" {
+  tags = {
+    Name = "Default VPC"
+  }
 }
 
 # Create VPC
@@ -48,7 +65,7 @@ resource "aws_route_table" "prod_route_table_0" {
 
 variable "subnet_prefix" {
   description = "cidr block for the subnet"
-  type = string
+  type        = string
 }
 
 resource "aws_subnet" "production_subnet_0" {
@@ -156,4 +173,20 @@ resource "aws_instance" "pihole" {
               sudo apt upgrade -y
               sudo apt install unzip unbound -y
               EOF
+}
+
+locals {
+  buckets = {
+    first_bucket  = "thumbnail_bucket_sandbox_01"
+    second_bucket = "thumbnail_bucket_sandbox_02"
+  }
+}
+
+resource "aws_s3_bucket" "thumbnails" {
+  for_each = local.buckets
+  bucket   = each.value
+}
+
+resource "aws_s3_bucket" "terraform-backend" {
+  bucket = "codingmaniacs-tf"
 }
